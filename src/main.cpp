@@ -150,10 +150,9 @@ int mode_down_stack(int option) {
     Engine::initScreen();
     auto gen = new MinoGenerator_7Bag(5);
     auto *game = new Game(gen);
-    game->addMassLine(1);
-    game->addMassLine(3);
-    game->addMassLine(5);
+    for (int i=0; i < 14; ++i) game->addMassLine(rand() % 10);
     auto *controller = new EngineController(game, 9);
+    controller->print();
 
     auto* clock = new Clock();
     int total_clear = 0;

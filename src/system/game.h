@@ -135,7 +135,9 @@ typedef unsigned int LineList;
 inline LineList withLine(LineList previous, char adding) { return previous | (1<<adding); }
 inline LineList isLineContained(LineList previous, char check) { return previous & (1<<check); }
 inline char countLine(LineList target) { return (char) __builtin_popcount(target); }
-inline LineList combineLine(LineList list1, LineList list2) { return list1 | list2; }
+
+inline LineList
+combineLine(LineList list1, LineList list2) { return list1 | list2; }
 struct ClearInfo {
     unsigned int cleared_line;
 };
@@ -147,14 +149,14 @@ public:
     Mino* hold_mino;
     bool hold_available = true;
     char board[BOARD_HEIGHT][10]{};
-    explicit Game(MinoGenerator* generator) {
+    explicit Game(MinoGenerator* generator, bool spawnAuto = true) {
         for (auto & i : board) {
             for (char & j : i) {
                 j = 0;
             }
         }
         this->generator = generator;
-        this->current = this->spawn();
+        if (spawnAuto) this->current = this->spawn();
         this->hold_mino = nullptr;
     }
 
@@ -163,9 +165,22 @@ public:
     }
 
     Game* copy() {
-        Game* newGame = new Game(this->generator->copy());
+        Game* newGame = new Game(this->generator->copy(), false);
         newGame->current = this->current.copy();
         newGame->hold_mino = this->hold_mino;
+        newGame->hold_available = this->hold_available;
+        std::copy(&this->board[0][0], &this->board[0][0] + 10 * BOARD_HEIGHT, &newGame->board[0][0]);
+
+
+        return newGame;
+    }
+    Game* copyBoard() {
+        auto* gen = new MinoGenerator_Fake(this->generator->MaxLookUp());
+        for (char i = 0; i < this->generator->MaxLookUp(); i++) gen->items.push_back(this->generator->Lookup(i)->id);
+        Game* newGame = new Game(gen, false);
+        newGame->current = this->current.copy();
+        newGame->hold_mino = this->hold_mino;
+        newGame->hold_available = this->hold_available;
         std::copy(&this->board[0][0], &this->board[0][0] + 10 * BOARD_HEIGHT, &newGame->board[0][0]);
 
 
@@ -181,7 +196,7 @@ public:
 //         for (char y = BOARD_HEIGHT - 2; y >= 0; --y) {
 //             std::copy(this->board[y], this->board[y] + 10, this->board[y+1]);
 //         }
-        std::copy_backward(&this->board[0][0], &this->board[BOARD_HEIGHT - 1][0], &this->board[BOARD_HEIGHT][0]);
+        std::copy_backward(&this->board[0][0], &this->board[BOARD_HEIGHT - 2][0], &this->board[BOARD_HEIGHT - 1][0]);
 
          for (char x=0; x < 10; ++x) {
              this->board[0][x] = Cell::Garbage;

@@ -251,69 +251,82 @@ namespace Engine::Stack {
     namespace DownStack {
         //TODO
         vector<tuple<char, char, vector<MinoState>>> downStack(Game* game) {
+
             vector<tuple<char, char, vector<MinoState>>> result;
             vector<tuple<Game*, char, char, vector<MinoState>>> search = {};
-            vector<tuple<Game*, char, char, vector<MinoState>>> newSearch = {{game->copy(), 0, 0, {}}};
+            vector<tuple<Game*, char, char, vector<MinoState>>> newSearch = {{game->copyBoard(), 0, 0, {}}};
             while (!newSearch.empty()) {
                 search = newSearch;
                 newSearch.clear();
                 for (tuple<Game*, char, char, vector<MinoState>> path : search) {
                     bool is_any_added = false;
 
-                    {
-                        for (auto reachable_current : Explore::reachable(get<0>(path), get<0>(path)->current)) {
-                            Game* copied_game = get<0>(path)->copy();
-                            copied_game->current = reachable_current;
-                            copied_game->drop();
-                            LineList cleared_line = copied_game->acceptClear().cleared_line;
-                            char cleared_line_count = countLine(cleared_line);
-                            char new_clear_line = (char) (get<1>(path) + cleared_line_count);
-                            char new_tetris_line = get<2>(path);
-                            vector<MinoState> newStates;
-                            for (auto state : get<3>(path)) newStates.push_back(state);
-                            newStates.push_back(reachable_current);
-                            if (cleared_line_count == 4) ++new_tetris_line;
-                            if (cleared_line) {
-                                is_any_added = true;
-                                newSearch.emplace_back(copied_game, new_clear_line, new_tetris_line, newStates);
-                            } else {
-                                delete copied_game;
-                            }
+                    Game* last_game = get<0>(path);
+                    for (auto reachable_current : Explore::filterStacked(last_game, Explore::reachable(last_game, last_game->current))) {
+                        Game* copied_game = last_game->copyBoard();
+                        copied_game->current = reachable_current;
+                        copied_game->drop();
+                        LineList cleared_line = copied_game->acceptClear().cleared_line;
+                        char cleared_line_count = countLine(cleared_line);
+                        if (cleared_line_count == 0) {
+                            delete copied_game; continue;
                         }
+                        is_any_added = true;
+                        char new_clear_line = (char) (get<1>(path) + cleared_line_count);
+                        char new_tetris_line = get<2>(path);
+                        vector<MinoState> newStates;
+                        for (auto state : get<3>(path)) newStates.push_back(state.copy());
+                        newStates.push_back(reachable_current);
+                        if (cleared_line_count == 4) ++new_tetris_line;
+                        if (copied_game->generator->MaxLookUp() == 0) {
+                            delete copied_game;
+                            result.emplace_back(new_clear_line, new_tetris_line, newStates);
+                        }
+                        else newSearch.emplace_back(copied_game, new_clear_line, new_tetris_line, newStates);
                     }
 
-                    if (get<0>(path)->hold_available) {
-                        for (auto reachable_hold : Explore::reachable(get<0>(path), MinoState::spawnState(get<0>(path)->hold_mino))) {
-                            Game* copied_game = get<0>(path)->copy();
+                    if (last_game->hold_available && last_game->hold_mino != nullptr) {
+                        for (auto reachable_hold : Explore::filterStacked(last_game, Explore::reachable(last_game, MinoState::spawnState(last_game->hold_mino)))) {
+                            Game* copied_game = last_game->copyBoard();
                             copied_game->hold();
                             copied_game->current = reachable_hold;
                             copied_game->drop();
                             LineList cleared_line = copied_game->acceptClear().cleared_line;
                             char cleared_line_count = countLine(cleared_line);
+                            if (cleared_line_count == 0) {
+                                delete copied_game; continue;
+                            }
+                            is_any_added = true;
                             char new_clear_line = (char) (get<1>(path) + cleared_line_count);
                             char new_tetris_line = get<2>(path);
                             vector<MinoState> newStates;
-                            for (auto state : get<3>(path)) newStates.push_back(state);
+                            for (auto state : get<3>(path)) newStates.push_back(state.copy());
                             newStates.push_back(reachable_hold);
                             if (cleared_line_count == 4) ++new_tetris_line;
-                            if (cleared_line) {
-                                is_any_added = true;
-                                newSearch.emplace_back(copied_game, new_clear_line, new_tetris_line, newStates);
-                            } else {
+                            if (copied_game->generator->MaxLookUp() == 0) {
                                 delete copied_game;
+                                result.emplace_back(new_clear_line, new_tetris_line, newStates);
                             }
+                            else newSearch.emplace_back(copied_game, new_clear_line, new_tetris_line, newStates);
+
                         }
                     }
-                    delete get<0>(path);
+                    delete last_game;
                     if (!is_any_added) result.emplace_back(get<1>(path), get<2>(path), get<3>(path));
-
                 }
             }
-            std::sort(result.begin(), result.end(),
+
+
+            vector<tuple<char, char, vector<MinoState>>> filtered;
+            for (auto path : result)
+                if (!get<2>(path).empty())
+                    filtered.push_back(path);
+
+            std::sort(filtered.begin(), filtered.end(),
                       [](tuple<char, char, vector<MinoState>> t1, tuple<char, char, vector<MinoState>> t2) -> bool {
                           return std::get<1>(t1) > std::get<1>(t2) || std::get<0>(t1) > std::get<0>(t2) || std::get<2>(t1).size() > std::get<2>(t2).size();
                       });
-            return result;
+            return filtered;
         }
 
     }

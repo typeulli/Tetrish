@@ -194,7 +194,8 @@ public:
         }
         if (this->mode == EngineMode::DownStack) {
             auto next = Engine::Stack::DownStack::downStack(game);
-            if (next.empty()) return {};
+            if (next.empty())
+                return this->inferNextStack(); // such as when O mino is current mino
             return get<2>(next[0]);
         }
         if (this->mode == EngineMode::Tetris) {

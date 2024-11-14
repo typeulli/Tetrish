@@ -144,8 +144,8 @@ namespace Engine::Explore {
         char topHeight = Engine::Measurement::topHeight(game);
 
         MinoState start_state = state.copy();
-        if ( start_state.position.y > static_cast<float>(topHeight + 3))
-            start_state.position.y = static_cast<float>(topHeight + 3);
+        while (start_state.position.y >= static_cast<float>(topHeight + 3) + 1)
+            --start_state.position.y;
 
 
         vector<MinoState> checked;

@@ -102,6 +102,14 @@ public:
         }
         return result;
     }
+    [[nodiscard]] vector<Pos> cellPositionsE() const {
+        vector<Pos> result;
+        for (int shapeNum = 0; shapeNum < 4; shapeNum++) {
+            auto p = this->mino->shape_set[this->rotation][shapeNum] + this->position;
+            result.push_back(p);
+        }
+        return result;
+    }
 
     inline bool operator==(const MinoState& other) const {
         return this->mino->id == other.mino->id && this->rotation == other.rotation && this->position == other.position;

@@ -4,13 +4,15 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <memory>
 
 using std::pair;
 using std::tuple;
 using std::vector;
 using std::string;
 using std::to_string;
-
+using std::unique_ptr;
+using std::make_unique;
 
 vector<string> split_string_by_char(const string& str, char delimiter) {
     vector<string> ret;

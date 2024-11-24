@@ -1,10 +1,10 @@
-#ifndef EXPLORER_H
-#define EXPLORER_H
+#ifndef SEARCH_H
+#define SEARCH_H
 
 #include "../system/game.h"
 #include "measurement.h"
 
-namespace Engine::Explore {
+namespace Engine::Search {
 
     const vector<std::function<bool(Game*)>> moveFunctionList = {
             [](Game* g) -> bool{return g->moveLeft();},
@@ -67,7 +67,7 @@ namespace Engine::Explore {
         }
 
         for (char start = 0; start < BOARD_HEIGHT - 2; start++) {
-            for (const vector<PosChar> &hole2line: Engine::Explore::findHoleRangeLine(game, start, (char) (start + 2), ignore_line_no)) {
+            for (const vector<PosChar> &hole2line: Engine::Search::findHoleRangeLine(game, start, (char) (start + 2), ignore_line_no)) {
                 if (hole2line.size() != 4) continue;
 
                 bool contain_checked_position = false;
@@ -85,7 +85,7 @@ namespace Engine::Explore {
 
                 holes.push_back(hole2line);
             }
-            for (const vector<PosChar> &hole3line: Engine::Explore::findHoleRangeLine(game, start, (char) (start + 3), ignore_line_no)) {
+            for (const vector<PosChar> &hole3line: Engine::Search::findHoleRangeLine(game, start, (char) (start + 3), ignore_line_no)) {
                 if (hole3line.size() != 4) continue;
 
                 bool contain_checked_position = false;
@@ -140,12 +140,14 @@ namespace Engine::Explore {
     }
 
 
-    vector<MinoState> reachable(Game* game, MinoState state) {
+    vector<MinoState> reachable(Game* game, MinoState state, bool optimization = true) {
         char topHeight = Engine::Measurement::topHeight(game);
 
         MinoState start_state = state.copy();
-        while (start_state.position.y >= static_cast<float>(topHeight + 3) + 1)
-            --start_state.position.y;
+        if (optimization) {
+            while (start_state.position.y >= static_cast<float>(topHeight + 3) + 1)
+                --start_state.position.y;
+        }
 
 
         vector<MinoState> checked;
@@ -161,7 +163,7 @@ namespace Engine::Explore {
             next_check.clear();
 
             for (MinoState checking: current_check) {
-                for (const std::function<bool(Game *)> &moveFunction: Explore::moveFunctionList) {
+                for (const std::function<bool(Game *)> &moveFunction: Search::moveFunctionList) {
                     std::unique_ptr<Game> copied_game(game->copy());
                     copied_game->current = checking.copy();
                     bool successMove = moveFunction(copied_game.get());
@@ -202,10 +204,6 @@ namespace Engine::Explore {
             }
         }
 
-        current_check.clear();
-        current_check.shrink_to_fit();
-        next_check.clear();
-        next_check.shrink_to_fit();
         return checked;
     }
 
@@ -273,6 +271,89 @@ namespace Engine::Explore {
         }
         return result;
     }
-}
 
-#endif //EXPLORER_H
+    template <typename T>
+    vector<T> bfs(size_t n, const vector<vector<T>>& graph, T start, T end) {
+        vector<bool> visited(n, false);
+        vector<int> parent(n, -1); // 경로를 추적하기 위한 부모 노드 배열
+
+        queue<T> q;
+        q.push(start);
+        visited[start] = true;
+
+        while (!q.empty()) {
+            int current = q.front();
+            q.pop();
+
+            if (current == end) {
+                break; // 목적지에 도달하면 탐색 중단
+            }
+
+            for (int neighbor : graph[current]) {
+                if (!visited[neighbor]) {
+                    visited[neighbor] = true;
+                    parent[neighbor] = current;
+                    q.push(neighbor);
+                }
+            }
+        }
+
+        // 경로를 역추적하여 vector로 구성
+        vector<T> path;
+        if (!visited[end]) {
+            return path; // 경로가 존재하지 않으면 빈 벡터 반환
+        }
+
+        for (int at = end; at != -1; at = parent[at]) {
+            path.push_back(at);
+        }
+        reverse(path.begin(), path.end()); // 역순으로 넣었으므로 순서 뒤집기
+        return path;
+    }
+
+    enum MoveType {
+        MLeft = 0, MRight = 1, MDown = 2, RCw = 3, RCcw = 4, R180 = 5, Drop = 6,
+    };
+    MoveType moveFromID[7] = {MLeft, MRight, MDown, RCw, RCcw, R180, Drop};
+
+    vector<MoveType> findPath(Game* game, MinoState start, MinoState end) {
+        vector<MinoState> reachable = Search::reachable(game, start, false);
+        if (std::find(reachable.begin(), reachable.end(), end) == reachable.end()) return {};
+        vector<vector<size_t>> graph;
+        vector<pair<pair<size_t, size_t>, MoveType>> moveTypeMap;
+        for (size_t index = 0; index < reachable.size(); index++) {
+            MinoState state = reachable[index];
+            graph.emplace_back();
+            for (char moveId = 0; moveId < 6; ++moveId) {
+                std::unique_ptr<Game> copied_game(game->copy());
+                copied_game->current = state.copy();
+                moveFunctionList[moveId](copied_game.get());
+                MinoState newState = copied_game->current.copy();
+
+                auto find = std::find(reachable.begin(), reachable.end(), newState);
+                if (find == reachable.end()) continue;
+
+                size_t newIndex = find - reachable.begin();
+
+                if (std::find(graph[index].begin(), graph[index].end(), newIndex) == graph[index].end()) graph[index].push_back(newIndex);
+                moveTypeMap.emplace_back(pair<size_t, size_t>{index, newIndex}, moveFromID[moveId]);
+            }
+        }
+        size_t start_index = std::find(reachable.begin(), reachable.end(), start) - reachable.begin();
+        size_t   end_index = std::find(reachable.begin(), reachable.end(),   end) - reachable.begin();
+        vector<size_t> path = Search::bfs(reachable.size(), graph, start_index, end_index);
+
+        vector<MoveType> result;
+        for (size_t index = 0; index < path.size() - 1; ++index) {
+            for (auto check : moveTypeMap) {
+                if (check.first.first == path[index] && check.first.second == path[index+1]) {
+                    result.push_back(check.second);
+                    break;
+                }
+            }
+        }
+        if (result.size() != path.size() - 1) throw std::logic_error("Failed to convert at Engine::Search::findPath");
+        return result;
+    }
+}
+#endif //SEARCH_H

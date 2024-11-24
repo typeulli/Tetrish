@@ -65,7 +65,7 @@ public:
     Pos position;
     char rotation;
 
-    static inline MinoState spawnState(Mino* mino) {
+    static MinoState spawnState(Mino* mino) {
         return {
                 mino,
                 Pos(4, BOARD_SPAWN_HEIGHT) + mino->spawn_offset,
@@ -73,7 +73,7 @@ public:
         };
     }
 
-    static inline MinoState emptyState() {
+    static MinoState emptyState() {
         return {
                 nullptr,
                 {0, 0},
@@ -81,7 +81,7 @@ public:
         };
     }
 
-    [[nodiscard]] inline bool is_empty_state() const { return this->mino == nullptr; }
+    [[nodiscard]] bool is_empty_state() const { return this->mino == nullptr; }
 
 
     MinoState(Mino* mino, Pos position, char rotation) : mino(mino), position(std::move(position)), rotation(rotation) {}
@@ -111,7 +111,7 @@ public:
         return result;
     }
 
-    inline bool operator==(const MinoState& other) const {
+    bool operator==(const MinoState& other) const {
         return this->mino->id == other.mino->id && this->rotation == other.rotation && this->position == other.position;
     }
 

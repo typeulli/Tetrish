@@ -63,8 +63,10 @@ public:
         char empty_line = this->inferEmptyHole();
         if (empty_line == 1 || empty_line == 8) return EngineMode::DownStack;
         if (this->mode == EngineMode::DownStack) {
-            for (auto & y : this->game->board)
-                if (y[empty_line]) return EngineMode::DownStack;
+            for (char y = 1; y < BOARD_HEIGHT; ++y) {
+                for (char x = 0; x < 10; ++x)
+                    if (game->board[y][x]) return EngineMode::DownStack;
+            }
             return EngineMode::Stack;
         }
 
@@ -72,7 +74,7 @@ public:
             || (this->game->hold_mino != nullptr && this->game->hold_mino->id == Mino::I.id)
             || (this->game->hold_mino == nullptr && this->game->generator->Lookup(0)->id == Mino::I.id)) {
             bool do_tetris = true;
-            for (auto hole_info : Engine::Explore::getHoles(Engine::Measurement::getHeights(game), this->empty_line)) {
+            for (auto hole_info : Engine::Search::getHoles(Engine::Measurement::getHeights(game), this->empty_line)) {
                 if (get<2>(hole_info) >= 3 && !((this->empty_line == 1 || this->empty_line == 8) ^ get<0>(hole_info) >= Engine::Stack::stackHeight(this->game, this->empty_line))) {
                     do_tetris = false;
                     break;
@@ -114,7 +116,7 @@ public:
         }
         return this->empty_line;
     }
-    inline void applyEmptyHole() {
+    void applyEmptyHole() {
         this->empty_line = this->inferEmptyHole();
     }
 
@@ -159,7 +161,7 @@ public:
                     copied_game->drop();
                     copied_game->acceptClear();
 
-                    auto reachable = Engine::Explore::filterEmptyLine(Engine::Explore::reachable(copied_game, MinoState::spawnState(state_fill.mino)), empty_line);
+                    auto reachable = Engine::Search::filterEmptyLine(Engine::Search::reachable(copied_game, MinoState::spawnState(state_fill.mino)), empty_line);
 
                     for (auto reachable_test : reachable) {
                         if (reachable_test == state_fill) {
@@ -224,11 +226,11 @@ public:
         return {};
     }
 
-    inline void applyNext() {
+    void applyNext() {
         for (auto state : this->inferNext()) this->preview.push_back(state);
     }
 
-    pair<bool, MinoState>  getNextState() {
+    pair<bool, MinoState> getNextState() {
         auto current_id = game->current.mino->id;
         auto hold_id = game->generator->Lookup(0)->id; // Next mino is a default mino to come by holding.
         if (game->hold_mino != nullptr) hold_id = game->hold_mino->id;

@@ -10,6 +10,7 @@
 
 #define OPTION_FORCE 1
 #define OPTION_STEP  2
+#define OPTION_MOVE  4
 
 int mode_inf(int option) {
     initConsole_WINDOW();
@@ -32,9 +33,17 @@ int mode_inf(int option) {
             fmt::println("No possible");
             break;
         }
-        controller->print(pair_work.second);
 
         if (pair_work.first) game->hold();
+        controller->print(pair_work.second);
+        if (option & OPTION_MOVE) {
+            for (Engine::Search::MoveType move: Engine::Search::findPath(game, game->current, pair_work.second)) {
+                Engine::Search::moveFunctionList[(int) move](game);
+                controller->print(pair_work.second);
+                Sleep(25);
+            }
+        }
+
         game->current = pair_work.second.copy();
         if (option & OPTION_STEP) system("pause > nul");
         game->drop();
@@ -297,6 +306,9 @@ int main(int argc, char *argv[]) {
         }
         if (strcmp(argv[count], "-s") == 0 || strcmp(argv[count], "--step") == 0) {
             option |= OPTION_STEP;
+        }
+        if (strcmp(argv[count], "-m") == 0 || strcmp(argv[count], "--move") == 0) {
+            option |= OPTION_MOVE;
         }
     }
     if (mode == 1) {

@@ -89,7 +89,7 @@ namespace Engine {
 //            }
 //        }
 
-        for (auto hole_info : Explore::getHoles(Measurement::getHeights(game), empty_line)) {
+        for (auto hole_info : Search::getHoles(Measurement::getHeights(game), empty_line)) {
             char x = std::get<0>(hole_info);
             for (char y = std::get<1>(hole_info); y <= std::get<2>(hole_info); y++)
                 printCell(x, y, "\033[1;31m!!\033[0m");

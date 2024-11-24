@@ -3,7 +3,7 @@
 
 
 #include "../system/game.h"
-#include "explorer.h"
+#include "search.h"
 #include "measurement.h"
 #include "tspin.h"
 
@@ -36,87 +36,40 @@ namespace Engine::Stack {
 
 
 
-    auto stack_state_compare_function = [](pair<MinoState, double> t1, pair<MinoState, double> t2) -> bool {
+    const auto stack_state_compare_function = [](pair<MinoState, double> t1, pair<MinoState, double> t2) -> bool {
         return t1.second > t2.second;
     };
 
     vector<pair<MinoState, double>> stack_state(Game* game, MinoState state, char empty_line) {
-        auto reachable_list = Explore::reachable(game, state);
-        auto line_filtered_list = Explore::filterEmptyLine(reachable_list, empty_line);
-        auto stackable_list = Explore::filterStacked(game, line_filtered_list);
-        auto notHovering_list = Explore::filterNotHovering(game, stackable_list);
+        auto reachable_list = Search::reachable(game, state);
+        auto line_filtered_list = Search::filterEmptyLine(reachable_list, empty_line);
+        auto stackable_list = Search::filterStacked(game, line_filtered_list);
+        auto notHovering_list = Search::filterNotHovering(game, stackable_list);
+
+
 
 
         size_t minimum_hole_count = 1000;
-        vector<tuple<MinoState, vector<char>>> minimum_hole_state;
+        vector<pair<MinoState, double>> minimum_hole_state;
         for (auto stackable: notHovering_list) {
             auto copied_game = game->copy();
             copied_game->current = stackable.copy();
             copied_game->drop();
             auto height = Measurement::getHeights(copied_game);
-            delete copied_game;
-            auto hole_count = Explore::getHoles(height, empty_line).size();
+            auto hole_count = Search::getHoles(height, empty_line).size();
             if (minimum_hole_count > hole_count) {
                 minimum_hole_count = hole_count;
                 minimum_hole_state.clear();
             }
             if (minimum_hole_count == hole_count) {
-                minimum_hole_state.emplace_back(stackable, height);
+                minimum_hole_state.emplace_back(stackable, -(stackable.position.y / BOARD_HEIGHT / 4) - Engine::Measurement::evaluate(copied_game, empty_line));
             }
+            delete copied_game;
         }
 
-        // Deprecapted for performance
-        //        Mino* next_mino = game->generator->Lookup(0);
-        //        Mino* hold_mino = game->hold_mino != nullptr? game->hold_mino : game->generator->Lookup(1);
-        //        vector<tuple<MinoState, Game, vector<char>>> next_also_stackable;
-        //        for (auto stackable_info : minimum_hole_state) {
-        //            auto filterNotHovering = get<0>(stackable_info);
-        //            auto copied_game = get<1>(stackable_info);
-        //
-        //            if (! (Engine::filterEmptyLine(copied_game,
-        //                                           Engine::filterNotHovering(
-        //                                                   copied_game,
-        //                                                   Engine::reachable(
-        //                                                           copied_game,
-        //                                                           MinoState::spawnState(next_mino))),
-        //                                           empty_lineno).empty()
-        //                   && Engine::filterEmptyLine(copied_game,
-        //                                              Engine::filterNotHovering(
-        //                                                      copied_game,
-        //                                                      Engine::reachable(
-        //                                                              copied_game,
-        //                                                              MinoState::spawnState(hold_mino))),
-        //                                              empty_lineno).empty())
-        //                    ) next_also_stackable.push_back(stackable_info);
-        //
-        //
-        //        }
+        std::sort(minimum_hole_state.begin(), minimum_hole_state.end(), stack_state_compare_function);
 
-        vector<pair<MinoState, double>> pointed;
-        for (auto state_case: minimum_hole_state) {
-            double delta_height_sum = 0;
-            auto height = std::get<1>(state_case);
-
-            for (char x = 0; x < 10 - 1; x++) {
-                if (x == empty_line || x + 1 == empty_line) continue;
-                delta_height_sum += static_cast<double>(pow(height[x] - height[x + 1], 2));
-            }
-            double standard_deviation_height = sqrt(delta_height_sum);
-
-
-
-            //            double point = pow(0.6849348892-standard_deviation_height, 2);
-
-            auto test_state = std::get<0>(state_case);
-
-            double point = -(test_state.position.y / BOARD_HEIGHT / 4) - standard_deviation_height;
-            pointed.emplace_back(test_state, point);
-        }
-
-        std::sort(pointed.begin(), pointed.end(), stack_state_compare_function);
-
-
-        return pointed;
+        return minimum_hole_state;
     }
 
     vector<pair<MinoState, double>> stackCell(Game* game, MinoState state, PosChar cell, char empty_line) {
@@ -141,7 +94,7 @@ namespace Engine::Stack {
         bool is_current_I = game->current.mino == Mino::ptr_I;
         bool is_hold_I = game->hold_mino == Mino::ptr_I;
         if (is_current_I || is_hold_I) {
-            auto holes = Explore::getHoles(Measurement::getHeights(game), empty_lineno);
+            auto holes = Search::getHoles(Measurement::getHeights(game), empty_lineno);
             tuple<char, char, char> hole_to_fill = {-1, 0, 0};
             int last_depth = 0;
             for (auto hole_info: holes) {
@@ -164,14 +117,14 @@ namespace Engine::Stack {
                         )};
         }
 
-        auto holes = Explore::findMinoHoles(game, empty_lineno);
-        auto previous_hole_count = Explore::findHoleRangeLine(game, 0, BOARD_HEIGHT, empty_lineno).size();
+        auto holes = Search::findMinoHoles(game, empty_lineno);
+        auto previous_hole_count = Search::findHoleRangeLine(game, 0, BOARD_HEIGHT, empty_lineno).size();
         for (auto holdState: holes) {
             if (holdState.mino == game->current.mino) {
                 auto copied_game = game->copy();
                 copied_game->current = holdState.copy();
                 copied_game->drop();
-                auto _hole_count = Explore::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
+                auto _hole_count = Search::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
                 delete copied_game;
                 if (_hole_count <= previous_hole_count)
                     return {false, holdState};
@@ -182,7 +135,7 @@ namespace Engine::Stack {
                 auto copied_game = game->copy();
                 copied_game->current = holdState.copy();
                 copied_game->drop();
-                auto _hole_count = Explore::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
+                auto _hole_count = Search::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
                 delete copied_game;
                 if (_hole_count <= previous_hole_count)
                     return {true, holdState};
@@ -211,11 +164,11 @@ namespace Engine::Stack {
 
     // As both next and current minos are unavailable, both them have similar scores, so consider only current mino.
     vector<tuple<MinoState, MinoState, PosChar, double>> stackForce(Game* game, MinoState state, char empty_line, const vector<Mino*>& nexts) {
-        auto reachable_list = Explore::reachable(game, state);
-        auto line_filtered_list = Explore::filterEmptyLine(reachable_list, empty_line);
-        auto stackable_list = Explore::filterStacked(game, line_filtered_list);
+        auto reachable_list = Search::reachable(game, state);
+        auto line_filtered_list = Search::filterEmptyLine(reachable_list, empty_line);
+        auto stackable_list = Search::filterStacked(game, line_filtered_list);
 
-        auto previous_hovered_cells = Explore::getHoveredPos(game);
+        auto previous_hovered_cells = Search::getHoveredPos(game);
 
         vector<tuple<MinoState, MinoState, PosChar, double>> pointed_list;
         for (auto state_case : stackable_list) {
@@ -226,7 +179,7 @@ namespace Engine::Stack {
             copied_game->acceptClear();
 
             vector<PosChar> newHoveredPos;
-            for (auto checkHoveredPos : Explore::getHoveredPos(copied_game)) {
+            for (auto checkHoveredPos : Search::getHoveredPos(copied_game)) {
                 if (std::find(previous_hovered_cells.begin(), previous_hovered_cells.end(), checkHoveredPos) == previous_hovered_cells.end()) {
                     newHoveredPos.push_back(checkHoveredPos);
                 }
@@ -249,12 +202,11 @@ namespace Engine::Stack {
     }
 
     namespace DownStack {
-        //TODO
         vector<tuple<char, char, vector<MinoState>>> downStack(Game* game) {
 
             vector<tuple<char, char, vector<MinoState>>> result;
             vector<tuple<Game*, char, char, vector<MinoState>>> search = {};
-            vector<tuple<Game*, char, char, vector<MinoState>>> newSearch = {{game->copyBoard(), 0, 0, {}}};
+            vector<tuple<Game*, char, char, vector<MinoState>>> newSearch = {{game->copyState(), 0, 0, {}}};
             while (!newSearch.empty()) {
                 search = newSearch;
                 newSearch.clear();
@@ -262,8 +214,8 @@ namespace Engine::Stack {
                     bool is_any_added = false;
 
                     Game* last_game = get<0>(path);
-                    for (auto reachable_current : Explore::filterStacked(last_game, Explore::reachable(last_game, last_game->current))) {
-                        Game* copied_game = last_game->copyBoard();
+                    for (auto reachable_current : Search::filterStacked(last_game, Search::reachable(last_game, last_game->current))) {
+                        Game* copied_game = last_game->copyState();
                         copied_game->current = reachable_current;
                         copied_game->drop();
                         LineList cleared_line = copied_game->acceptClear().cleared_line;
@@ -286,8 +238,8 @@ namespace Engine::Stack {
                     }
 
                     if (last_game->hold_available && last_game->hold_mino != nullptr) {
-                        for (auto reachable_hold : Explore::filterStacked(last_game, Explore::reachable(last_game, MinoState::spawnState(last_game->hold_mino)))) {
-                            Game* copied_game = last_game->copyBoard();
+                        for (auto reachable_hold : Search::filterStacked(last_game, Search::reachable(last_game, MinoState::spawnState(last_game->hold_mino)))) {
+                            Game* copied_game = last_game->copyState();
                             copied_game->hold();
                             copied_game->current = reachable_hold;
                             copied_game->drop();

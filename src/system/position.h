@@ -11,31 +11,31 @@ public:
 
     Pos(float x, float y): x(x), y(y) {}
 
-    inline Pos operator+(const Pos& other) const {
+    Pos operator+(const Pos& other) const {
         return {x + other.x, y + other.y};
     }
-    inline void operator+=(const Pos& other) {
+    void operator+=(const Pos& other) {
         this->x += other.x;
         this->y += other.y;
     }
 
-    inline Pos operator-(const Pos& other) const {
+    Pos operator-(const Pos& other) const {
         return {x - other.x, y - other.y};
     }
-    inline void operator-=(const Pos& other) {
+    void operator-=(const Pos& other) {
         this->x -= other.x;
         this->y -= other.y;
     }
 
-    inline Pos operator-() const {
+    Pos operator-() const {
         return {-x, -y};
     }
 
-    inline Pos operator*(float other) const {
+    Pos operator*(float other) const {
         return {x * other, y * other};
     }
 
-    inline bool operator==(const Pos& other) const {
+    bool operator==(const Pos& other) const {
         // Consider using a tolerance for floating-point comparisons
         constexpr float epsilon = 1e-6f;
         return std::abs(x - other.x) <= epsilon && std::abs(y - other.y) <= epsilon;

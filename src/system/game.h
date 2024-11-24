@@ -174,7 +174,7 @@ public:
 
         return newGame;
     }
-    Game* copyBoard() {
+    Game* copyState() {
         auto* gen = new MinoGenerator_Fake(this->generator->MaxLookUp());
         for (char i = 0; i < this->generator->MaxLookUp(); i++) gen->items.push_back(this->generator->Lookup(i)->id);
         Game* newGame = new Game(gen, false);
@@ -183,6 +183,15 @@ public:
         newGame->hold_available = this->hold_available;
         std::copy(&this->board[0][0], &this->board[0][0] + 10 * BOARD_HEIGHT, &newGame->board[0][0]);
 
+
+        return newGame;
+    }
+    Game* copyBoard() {
+        Game* newGame = new Game(new MinoGenerator_Fake(0), false);
+        newGame->current = this->current.copy();
+        newGame->hold_mino = this->hold_mino;
+        newGame->hold_available = this->hold_available;
+        std::copy(&this->board[0][0], &this->board[0][0] + 10 * BOARD_HEIGHT, &newGame->board[0][0]);
 
         return newGame;
     }
@@ -257,7 +266,10 @@ public:
     };
 
     inline bool moveDown() {
-        return move({0, -1});
+        bool possible = false;
+        while (move({0, -1}))
+            possible = true;
+        return possible;
     };
     template <std::size_t kicktable_length>
     bool rotate(char rotate, PosChar kicktable[4][kicktable_length]){

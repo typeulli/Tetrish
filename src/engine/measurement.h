@@ -55,6 +55,18 @@ namespace Engine::Measurement {
         }
         return height;
     }
+    double evaluate(Game* game, char empty_line) {
+        double delta_height_sum = 0;
+        auto height = getHeights(game);
+
+        for (char x = 0; x < 10 - 1; x++) {
+            if (x == empty_line || x + 1 == empty_line) continue;
+            delta_height_sum += static_cast<double>(pow(height[x] - height[x + 1], 2));
+        }
+        
+        double standard_deviation_height = sqrt(delta_height_sum);
+        return standard_deviation_height;
+    }
 }
 
 #endif //MEASUREMENT_H

@@ -56,7 +56,7 @@ namespace Engine::Stack {
             copied_game->current = stackable.copy();
             copied_game->drop();
             auto height = Measurement::getHeights(copied_game);
-            auto hole_count = Search::getHoles(height, empty_line).size();
+            auto hole_count = Measurement::getHoles(height, empty_line).size();
             if (minimum_hole_count > hole_count) {
                 minimum_hole_count = hole_count;
                 minimum_hole_state.clear();
@@ -94,7 +94,7 @@ namespace Engine::Stack {
         bool is_current_I = game->current.mino == Mino::ptr_I;
         bool is_hold_I = game->hold_mino == Mino::ptr_I;
         if (is_current_I || is_hold_I) {
-            auto holes = Search::getHoles(Measurement::getHeights(game), empty_lineno);
+            auto holes = Measurement::getHoles(Measurement::getHeights(game), empty_lineno);
             tuple<char, char, char> hole_to_fill = {-1, 0, 0};
             int last_depth = 0;
             for (auto hole_info: holes) {
@@ -117,14 +117,14 @@ namespace Engine::Stack {
                         )};
         }
 
-        auto holes = Search::findMinoHoles(game, empty_lineno);
-        auto previous_hole_count = Search::findHoleRangeLine(game, 0, BOARD_HEIGHT, empty_lineno).size();
+        auto holes = Measurement::findMinoHoles(game, empty_lineno);
+        auto previous_hole_count = Measurement::findHoleRangeLine(game, 0, BOARD_HEIGHT, empty_lineno).size();
         for (auto holdState: holes) {
             if (holdState.mino == game->current.mino) {
                 auto copied_game = game->copy();
                 copied_game->current = holdState.copy();
                 copied_game->drop();
-                auto _hole_count = Search::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
+                auto _hole_count = Measurement::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
                 delete copied_game;
                 if (_hole_count <= previous_hole_count)
                     return {false, holdState};
@@ -135,7 +135,7 @@ namespace Engine::Stack {
                 auto copied_game = game->copy();
                 copied_game->current = holdState.copy();
                 copied_game->drop();
-                auto _hole_count = Search::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
+                auto _hole_count = Measurement::findHoleRangeLine(copied_game, 0, BOARD_HEIGHT, empty_lineno).size();
                 delete copied_game;
                 if (_hole_count <= previous_hole_count)
                     return {true, holdState};
@@ -168,7 +168,7 @@ namespace Engine::Stack {
         auto line_filtered_list = Search::filterEmptyLine(reachable_list, empty_line);
         auto stackable_list = Search::filterStacked(game, line_filtered_list);
 
-        auto previous_hovered_cells = Search::getHoveredPos(game);
+        auto previous_hovered_cells = Measurement::getHoveredPos(game);
 
         vector<tuple<MinoState, MinoState, PosChar, double>> pointed_list;
         for (auto state_case : stackable_list) {
@@ -179,7 +179,7 @@ namespace Engine::Stack {
             copied_game->acceptClear();
 
             vector<PosChar> newHoveredPos;
-            for (auto checkHoveredPos : Search::getHoveredPos(copied_game)) {
+            for (auto checkHoveredPos : Measurement::getHoveredPos(copied_game)) {
                 if (std::find(previous_hovered_cells.begin(), previous_hovered_cells.end(), checkHoveredPos) == previous_hovered_cells.end()) {
                     newHoveredPos.push_back(checkHoveredPos);
                 }
@@ -202,9 +202,9 @@ namespace Engine::Stack {
     }
 
     namespace DownStack {
-        vector<tuple<char, char, vector<MinoState>>> downStack(Game* game) {
+        vector<tuple<char, char, double, vector<MinoState>>> downStack(Game* game) {
 
-            vector<tuple<char, char, vector<MinoState>>> result;
+            vector<tuple<char, char, double, vector<MinoState>>> result;
             vector<tuple<Game*, char, char, vector<MinoState>>> search = {};
             vector<tuple<Game*, char, char, vector<MinoState>>> newSearch = {{game->copyState(), 0, 0, {}}};
             while (!newSearch.empty()) {
@@ -231,8 +231,8 @@ namespace Engine::Stack {
                         newStates.push_back(reachable_current);
                         if (cleared_line_count == 4) ++new_tetris_line;
                         if (copied_game->generator->MaxLookUp() == 0) {
+                            result.emplace_back(new_clear_line, new_tetris_line, Engine::Measurement::evaluate(copied_game), newStates);
                             delete copied_game;
-                            result.emplace_back(new_clear_line, new_tetris_line, newStates);
                         }
                         else newSearch.emplace_back(copied_game, new_clear_line, new_tetris_line, newStates);
                     }
@@ -256,27 +256,31 @@ namespace Engine::Stack {
                             newStates.push_back(reachable_hold);
                             if (cleared_line_count == 4) ++new_tetris_line;
                             if (copied_game->generator->MaxLookUp() == 0) {
+                                result.emplace_back(new_clear_line, new_tetris_line, Engine::Measurement::evaluate(copied_game), newStates);
                                 delete copied_game;
-                                result.emplace_back(new_clear_line, new_tetris_line, newStates);
                             }
                             else newSearch.emplace_back(copied_game, new_clear_line, new_tetris_line, newStates);
 
                         }
                     }
+                    if (!is_any_added) result.emplace_back(get<1>(path), get<2>(path), Engine::Measurement::evaluate(last_game), get<3>(path));
                     delete last_game;
-                    if (!is_any_added) result.emplace_back(get<1>(path), get<2>(path), get<3>(path));
                 }
             }
 
 
-            vector<tuple<char, char, vector<MinoState>>> filtered;
+            vector<tuple<char, char, double, vector<MinoState>>> filtered;
             for (auto path : result)
-                if (!get<2>(path).empty())
+                if (!get<3>(path).empty())
                     filtered.push_back(path);
 
             std::sort(filtered.begin(), filtered.end(),
-                      [](tuple<char, char, vector<MinoState>> t1, tuple<char, char, vector<MinoState>> t2) -> bool {
-                          return std::get<1>(t1) > std::get<1>(t2) || std::get<0>(t1) > std::get<0>(t2) || std::get<2>(t1).size() > std::get<2>(t2).size();
+                      [](tuple<char, char, double, vector<MinoState>> t1, tuple<char, char, double, vector<MinoState>> t2) -> bool {
+                          return std::get<1>(t1) > std::get<1>(t2)
+                                  || ((std::get<2>(t1) > .4 || std::get<2>(t2) > .4) && std::get<2>(t1) > std::get<2>(t2))
+                                  || std::get<0>(t1) > std::get<0>(t2)
+                                  || std::get<2>(t1) > std::get<2>(t2)
+                                  || std::get<3>(t1).size() > std::get<3>(t2).size();
                       });
             return filtered;
         }

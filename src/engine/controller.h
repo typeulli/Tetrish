@@ -63,18 +63,15 @@ public:
         char empty_line = this->inferEmptyHole();
         if (empty_line == 1 || empty_line == 8) return EngineMode::DownStack;
         if (this->mode == EngineMode::DownStack) {
-            for (char y = 1; y < BOARD_HEIGHT; ++y) {
-                for (char x = 0; x < 10; ++x)
-                    if (game->board[y][x]) return EngineMode::DownStack;
-            }
-            return EngineMode::Stack;
+            if (Engine::Measurement::getHoveredPos(game).empty()) return EngineMode::Stack;
+            return EngineMode::DownStack;
         }
 
         if (this->game->current.mino->id == Mino::I.id
             || (this->game->hold_mino != nullptr && this->game->hold_mino->id == Mino::I.id)
             || (this->game->hold_mino == nullptr && this->game->generator->Lookup(0)->id == Mino::I.id)) {
             bool do_tetris = true;
-            for (auto hole_info : Engine::Search::getHoles(Engine::Measurement::getHeights(game), this->empty_line)) {
+            for (auto hole_info : Engine::Measurement::getHoles(Engine::Measurement::getHeights(game), this->empty_line)) {
                 if (get<2>(hole_info) >= 3 && !((this->empty_line == 1 || this->empty_line == 8) ^ get<0>(hole_info) >= Engine::Stack::stackHeight(this->game, this->empty_line))) {
                     do_tetris = false;
                     break;
@@ -198,7 +195,7 @@ public:
             auto next = Engine::Stack::DownStack::downStack(game);
             if (next.empty())
                 return this->inferNextStack(); // such as when O mino is current mino
-            return get<2>(next[0]);
+            return get<3>(next[0]);
         }
         if (this->mode == EngineMode::Tetris) {
             MinoState state(Mino::ptr_I, {(float) this->empty_line - .5f,  (float) BOARD_SPAWN_HEIGHT - .5f}, 1);
